@@ -82,7 +82,6 @@ jobs:
           if [ -n "$NDK" ]; then PACKAGES="$PACKAGES ndk;$NDK"; fi
           "$SDKMANAGER" --install $PACKAGES
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
-          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" >> "$PROP"
 
       - name: Assinar com chave de release
         env:
@@ -100,6 +99,8 @@ jobs:
 
       - name: Compilar APK
         working-directory: android
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
         run: chmod +x ./gradlew && ./gradlew assembleRelease --no-daemon
 
       - name: Preparar arquivos da release
