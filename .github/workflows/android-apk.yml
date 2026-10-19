@@ -1,0 +1,127 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: Texto da atualização
+        required: false
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    name: Gerar APK e publicar
+    runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_API_URL: https://api.paadvocacia.com
+      EXPO_PUBLIC_VERSION_URL: https://github.com/${{ github.repository }}/releases/latest/download/version.json
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Ler versão
+        id: version
+        run: |
+          VERSION=$(node -p "require('./app.json').expo.version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.ref_type }}" = "tag" ] && [ "${{ github.ref_name }}" != "v$VERSION" ]; then
+            echo "A tag ${{ github.ref_name }} precisa ser v$VERSION, igual ao app.json."
+            exit 1
+          fi
+
+      - name: Definir versionCode
+        run: node scripts/prepare-android-release.js
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar projeto Android
+        run: npx expo prebuild --platform android --non-interactive
+
+      - name: Instalar pacotes do Android SDK
+        run: |
+          PROP=android/gradle.properties
+          COMPILE=$(grep '^android.compileSdkVersion=' "$PROP" | cut -d= -f2 | tr -d ' "')
+          BUILD_TOOLS=$(grep '^android.buildToolsVersion=' "$PROP" | cut -d= -f2 | tr -d ' "')
+          NDK=$(grep -R --include='*.gradle' -h 'ndkVersion' android | sed -n 's/.*"\([^"]*\)".*/\1/p' | head -1)
+          if [ -z "$NDK" ]; then
+            NDK=$(grep '^android.ndkVersion=' "$PROP" | cut -d= -f2 | tr -d ' "')
+          fi
+          COMPILE=${COMPILE:-36}
+          BUILD_TOOLS=${BUILD_TOOLS:-36.0.0}
+          echo "compileSdk=$COMPILE buildTools=$BUILD_TOOLS ndk=$NDK"
+          PACKAGES="platforms;android-${COMPILE} build-tools;${BUILD_TOOLS} cmake;3.22.1"
+          if [ -n "$NDK" ]; then PACKAGES="$PACKAGES ndk;$NDK"; fi
+          sdkmanager $PACKAGES
+          echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" >> "$PROP"
+
+      - name: Assinar com chave de release
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "Sem chave de release. O APK usa a chave de debug do template."
+            exit 0
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          node scripts/use-release-keystore.js
+
+      - name: Compilar APK
+        working-directory: android
+        run: chmod +x ./gradlew && ./gradlew assembleRelease --no-daemon
+
+      - name: Preparar arquivos da release
+        env:
+          NOTES: ${{ github.event.inputs.notes }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk juriflow-cadastro.apk
+          node -e '
+            const fs = require("fs");
+            const version = process.env.APP_VERSION;
+            const repo = process.env.GITHUB_REPOSITORY;
+            const notes = process.env.NOTES || "";
+            const apkUrl = "https://github.com/" + repo + "/releases/download/v" + version + "/juriflow-cadastro.apk";
+            fs.writeFileSync("version.json", JSON.stringify({ version, apkUrl, notes }, null, 2) + "\n");
+          '
+
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: JuriFlow Cadastro ${{ steps.version.outputs.version }}
+          body: |
+            Instale o arquivo `juriflow-cadastro.apk` no Android.
+            A versão no aparelho consulta `version.json` desta release.
+          files: |
+            juriflow-cadastro.apk
+            version.json
+          make_latest: true

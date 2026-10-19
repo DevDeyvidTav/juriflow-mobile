@@ -1,19 +1,44 @@
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { LoginScreen } from './src/screens/LoginScreen';
+import { MainScreen } from './src/screens/MainScreen';
+import { QueueProvider } from './src/state/queue';
+import { SessionProvider, useSession } from './src/state/session';
+import { colors } from './src/theme/colors';
+
+function Gate() {
+  const { session, loading } = useSession();
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
+  if (!session) return <LoginScreen />;
+  return (
+    <QueueProvider session={session}>
+      <MainScreen />
+    </QueueProvider>
+  );
+}
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <StatusBar style="light" />
+      <SessionProvider>
+        <Gate />
+      </SessionProvider>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  center: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
