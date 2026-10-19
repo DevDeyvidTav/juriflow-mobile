@@ -41,9 +41,6 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Ler versão
         id: version
         run: |
@@ -65,6 +62,12 @@ jobs:
 
       - name: Instalar pacotes do Android SDK
         run: |
+          if [ -z "${ANDROID_HOME:-}" ]; then
+            echo "ANDROID_HOME não está definido neste runner."
+            exit 1
+          fi
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
           PROP=android/gradle.properties
           COMPILE=$(grep '^android.compileSdkVersion=' "$PROP" | cut -d= -f2 | tr -d ' "')
           BUILD_TOOLS=$(grep '^android.buildToolsVersion=' "$PROP" | cut -d= -f2 | tr -d ' "')
@@ -77,7 +80,8 @@ jobs:
           echo "compileSdk=$COMPILE buildTools=$BUILD_TOOLS ndk=$NDK"
           PACKAGES="platforms;android-${COMPILE} build-tools;${BUILD_TOOLS} cmake;3.22.1"
           if [ -n "$NDK" ]; then PACKAGES="$PACKAGES ndk;$NDK"; fi
-          sdkmanager $PACKAGES
+          "$SDKMANAGER" --install $PACKAGES
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
           echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" >> "$PROP"
 
       - name: Assinar com chave de release
