@@ -8,7 +8,7 @@ import { statusLabel } from '../../src/lib/status';
 import { validateForm } from '../../src/lib/validate';
 import { buildPayload } from '../../src/lib/payload';
 import { findSameCpf } from '../../src/lib/duplicate';
-import { fileProblem, isOtherDocuments, visibleBenefitFiles } from '../../src/lib/benefits';
+import { fileProblem, isOtherDocuments, matchBenefits, visibleBenefitFiles } from '../../src/lib/benefits';
 import { withRetry } from '../../src/lib/retry';
 import { ApiError } from '../../src/lib/api-error';
 import { createMemoryStore } from '../../src/data/memory-store';
@@ -85,6 +85,13 @@ describe('regras do cadastro', () => {
         { id: '2', label: 'Outros documentos', acceptedTypes: 'pdf', order: 1 },
       ],
     });
+    expect(matchBenefits(
+      [
+        { id: '1', name: 'Auxílio-doença', order: 0, requiredFiles: [] },
+        { id: '2', name: 'Aposentadoria', order: 1, requiredFiles: [] },
+      ],
+      'aux',
+    ).map((item) => item.name)).toEqual(['Auxílio-doença']);
     expect(files.map((file) => file.label)).toEqual(['RG']);
     expect(isOtherDocuments('Outro documento extra')).toBe(true);
     expect(fileProblem('text/plain', 10)).toMatch(/Formato/);

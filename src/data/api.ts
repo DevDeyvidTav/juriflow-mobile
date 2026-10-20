@@ -1,6 +1,6 @@
 import { ApiError } from '../lib/api-error';
 import { withRetry } from '../lib/retry';
-import type { BenefitType, Catalog, ClientApi, CloudClient, KanbanBoard, LocalFile, Session } from '../lib/types';
+import type { BenefitType, ClientApi, CloudClient, KanbanBoard, LocalFile, Session } from '../lib/types';
 import { readUpdate, type AppUpdate } from '../lib/version';
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
@@ -43,14 +43,23 @@ export async function login(email: string, password: string): Promise<Session> {
   };
 }
 
-export async function fetchCatalog(token: string): Promise<Catalog> {
-  const [kanbans, benefits] = await Promise.all([
+export type CatalogFetch = {
+  kanbans: KanbanBoard[] | null;
+  benefits: BenefitType[] | null;
+};
+
+function asList<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+export async function fetchCatalog(token: string): Promise<CatalogFetch> {
+  const [kanbans, benefits] = await Promise.allSettled([
     request<KanbanBoard[]>('/kanban-boards', token),
     request<BenefitType[]>('/benefits', token),
   ]);
   return {
-    kanbans: Array.isArray(kanbans) ? kanbans : [],
-    benefits: Array.isArray(benefits) ? benefits : [],
+    kanbans: kanbans.status === 'fulfilled' ? asList<KanbanBoard>(kanbans.value) : null,
+    benefits: benefits.status === 'fulfilled' ? asList<BenefitType>(benefits.value) : null,
   };
 }
 

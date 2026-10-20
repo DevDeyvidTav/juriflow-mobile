@@ -19,7 +19,13 @@ export function isOtherDocuments(label: string): boolean {
 
 export function visibleBenefitFiles(benefit: BenefitType | null): BenefitFile[] {
   if (!benefit) return [];
-  return benefit.requiredFiles.filter((file) => !isOtherDocuments(file.label));
+  return (benefit.requiredFiles ?? []).filter((file) => !isOtherDocuments(file.label));
+}
+
+export function matchBenefits(benefits: BenefitType[], query: string): BenefitType[] {
+  const term = query.trim().toLowerCase();
+  if (!term) return benefits;
+  return benefits.filter((item) => item.name.toLowerCase().includes(term));
 }
 
 export function mimeFromName(name: string): string {

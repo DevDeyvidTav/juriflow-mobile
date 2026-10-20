@@ -218,12 +218,15 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
 
       <Card>
         <SectionTitle>Benefício Pretendido</SectionTitle>
-        {queue.catalog.benefits.length > 0 ? (
+        {queue.catalogLoading ? (
+          <Text style={styles.help}>Carregando opções...</Text>
+        ) : queue.catalog.benefits.length > 0 ? (
           <SelectField
             label="Tipo de benefício"
             required={req('targetBenefit')}
             value={benefitId}
             placeholder="Selecione o tipo de benefício"
+            searchable
             options={queue.catalog.benefits.map((item) => ({ value: item.id, label: item.name }))}
             onChange={chooseBenefit}
           />
@@ -232,7 +235,7 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
             label="Tipo de benefício"
             required={req('targetBenefit')}
             value={form.targetBenefit}
-            placeholder="Ex: Aposentadoria por invalidez"
+            placeholder="Ex: Aposentadoria por invalidez, auxílio doença..."
             onChangeText={(value) => setField('targetBenefit', value)}
           />
         )}

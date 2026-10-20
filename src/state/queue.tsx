@@ -12,6 +12,7 @@ type QueueApi = {
   ready: boolean;
   online: boolean;
   syncing: boolean;
+  catalogLoading: boolean;
   items: Cadastro[];
   history: CloudClient[];
   catalog: Catalog;
@@ -29,6 +30,7 @@ export function QueueProvider({ session, children }: { session: Session; childre
   const [items, setItems] = useState<Cadastro[]>([]);
   const [history, setHistory] = useState<CloudClient[]>([]);
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const running = useRef(false);
   const storeRef = useRef<AppStore | null>(null);
@@ -49,6 +51,7 @@ export function QueueProvider({ session, children }: { session: Session; childre
       const [cached, cachedHistory] = await Promise.all([opened.readCatalog(), opened.readHistory()]);
       if (!alive) return;
       if (cached) setCatalog(cached);
+      if (cached?.benefits.length) setCatalogLoading(false);
       setHistory(cachedHistory);
     });
     return () => {
@@ -57,14 +60,26 @@ export function QueueProvider({ session, children }: { session: Session; childre
   }, [reload]);
 
   useEffect(() => {
-    if (!store || !online) return;
+    if (!store) return;
+    if (!online) {
+      setCatalogLoading(false);
+      return;
+    }
     let alive = true;
     fetchCatalog(session.token)
       .then(async (fresh) => {
-        await store.saveCatalog(fresh);
-        if (alive) setCatalog(fresh);
+        const current = (await store.readCatalog()) ?? EMPTY_CATALOG;
+        const next = {
+          kanbans: fresh.kanbans ?? current.kanbans,
+          benefits: fresh.benefits ?? current.benefits,
+        };
+        await store.saveCatalog(next);
+        if (alive) setCatalog(next);
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        if (alive) setCatalogLoading(false);
+      });
     return () => {
       alive = false;
     };
@@ -142,6 +157,7 @@ export function QueueProvider({ session, children }: { session: Session; childre
         ready: Boolean(store),
         online,
         syncing,
+        catalogLoading,
         items,
         history,
         catalog,
