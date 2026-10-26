@@ -1,5 +1,6 @@
-import { ReactNode } from 'react';
-import { StyleSheet, Text, TextInput, TextInputProps } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { ReactNode, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 import { colors } from '../theme/colors';
 
 type Props = {
@@ -32,19 +33,35 @@ export function TextField({
   multiline,
   keyboard,
 }: Props) {
+  const [hidden, setHidden] = useState(true);
   return (
     <>
       <FieldLabel required={required}>{label}</FieldLabel>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.mutedSubtle}
-        secureTextEntry={secure}
-        multiline={multiline}
-        keyboardType={keyboard}
-        style={[styles.input, multiline ? styles.area : null]}
-      />
+      <View style={styles.field}>
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={colors.mutedSubtle}
+          secureTextEntry={secure ? hidden : false}
+          autoCapitalize={secure ? 'none' : undefined}
+          autoCorrect={secure ? false : undefined}
+          multiline={multiline}
+          keyboardType={keyboard}
+          style={[styles.input, multiline ? styles.area : null, secure ? styles.inputSecure : null]}
+        />
+        {secure ? (
+          <Pressable
+            onPress={() => setHidden((current) => !current)}
+            style={styles.eye}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={hidden ? 'Mostrar senha' : 'Ocultar senha'}
+          >
+            <Ionicons name={hidden ? 'eye-outline' : 'eye-off-outline'} size={20} color={colors.accent} />
+          </Pressable>
+        ) : null}
+      </View>
     </>
   );
 }
@@ -59,6 +76,9 @@ const styles = StyleSheet.create({
   star: {
     color: colors.accent,
   },
+  field: {
+    justifyContent: 'center',
+  },
   input: {
     backgroundColor: colors.card,
     borderColor: colors.border,
@@ -68,6 +88,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
+  },
+  inputSecure: {
+    paddingRight: 44,
+  },
+  eye: {
+    position: 'absolute',
+    right: 8,
+    top: 0,
+    bottom: 0,
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   area: {
     minHeight: 96,
