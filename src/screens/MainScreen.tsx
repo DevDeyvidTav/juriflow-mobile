@@ -7,8 +7,8 @@ import { useQueue } from '../state/queue';
 import { useSession } from '../state/session';
 import { colors } from '../theme/colors';
 import { Header } from '../ui/Header';
-import { Notice } from '../ui/Notice';
 import { Screen } from '../ui/Screen';
+import { UpdateToast } from '../ui/UpdateToast';
 import type { HistoryRow } from '../lib/history';
 import { CadastroScreen } from './CadastroScreen';
 import { DetalheScreen } from './DetalheScreen';
@@ -30,6 +30,13 @@ export function MainScreen() {
 
   return (
     <Screen>
+      {update ? (
+        <UpdateToast
+          version={update.version}
+          notes={update.notes}
+          onDownload={() => Linking.openURL(update.apkUrl)}
+        />
+      ) : null}
       <Header
         name={session?.user.name ?? ''}
         online={queue.online}
@@ -37,14 +44,6 @@ export function MainScreen() {
         onSync={() => void queue.syncNow()}
         onLogout={() => void signOut()}
       />
-      {update ? (
-        <View style={styles.update}>
-          <Notice text={`Nova versão ${update.version} disponível.${update.notes ? ` ${update.notes}` : ''}`} />
-          <Pressable onPress={() => Linking.openURL(update.apkUrl)}>
-            <Text style={styles.updateLink}>Baixar atualização</Text>
-          </Pressable>
-        </View>
-      ) : null}
       {openRow ? (
         openRow.localId ? (
           <DetalheScreen id={openRow.localId} onBack={() => setOpenRow(null)} />
@@ -102,14 +101,5 @@ const styles = StyleSheet.create({
   },
   tabTextOn: {
     color: colors.white,
-  },
-  update: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    gap: 6,
-  },
-  updateLink: {
-    color: colors.accent,
-    fontWeight: '700',
   },
 });

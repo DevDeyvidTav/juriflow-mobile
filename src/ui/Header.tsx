@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function Header({ name, online, syncing, onSync, onLogout }: Props) {
+  const syncDisabled = !online || syncing;
   return (
     <View style={styles.bar}>
       <View style={styles.titles}>
@@ -21,16 +23,44 @@ export function Header({ name, online, syncing, onSync, onLogout }: Props) {
           <View style={[styles.dot, { backgroundColor: online ? colors.success : colors.warning }]} />
           <Text style={styles.pillText}>{online ? 'Online' : 'Offline'}</Text>
         </View>
-        <Pressable onPress={onSync} disabled={!online || syncing} style={styles.link}>
-          <Text style={[styles.linkText, !online || syncing ? styles.off : null]}>
-            {syncing ? 'Enviando…' : 'Sincronizar'}
-          </Text>
-        </Pressable>
-        <Pressable onPress={onLogout} style={styles.link}>
-          <Text style={styles.linkText}>Sair</Text>
-        </Pressable>
+        <ActionButton
+          icon="sync"
+          label={syncing ? 'Enviando…' : 'Sincronizar'}
+          disabled={syncDisabled}
+          onPress={onSync}
+        />
+        <ActionButton icon="log-out-outline" label="Sair" onPress={onLogout} />
       </View>
     </View>
+  );
+}
+
+function ActionButton({
+  icon,
+  label,
+  onPress,
+  disabled,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  const color = disabled ? colors.mutedSubtle : colors.accent;
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      android_ripple={{ color: '#60A5FA40' }}
+      style={({ pressed }) => [
+        styles.action,
+        pressed && !disabled ? styles.actionPressed : null,
+        disabled ? styles.actionOff : null,
+      ]}
+    >
+      <Ionicons name={icon} size={16} color={color} />
+      <Text style={[styles.actionText, { color }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -56,8 +86,9 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   pill: {
     flexDirection: 'row',
@@ -78,15 +109,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  link: {
-    paddingVertical: 6,
+  action: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
-  linkText: {
-    color: colors.accent,
+  actionPressed: {
+    borderColor: colors.accent,
+    backgroundColor: '#1A3050',
+  },
+  actionOff: {
+    opacity: 0.55,
+  },
+  actionText: {
     fontSize: 13,
-    fontWeight: '600',
-  },
-  off: {
-    color: colors.mutedSubtle,
+    fontWeight: '700',
   },
 });

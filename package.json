@@ -1,8 +1,9 @@
 {
   "name": "mobile",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "main": "index.ts",
   "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
     "expo": "^57.0.0",
     "expo-constants": "~57.0.22",
     "expo-document-picker": "~57.0.3",
