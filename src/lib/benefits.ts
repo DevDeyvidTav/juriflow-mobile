@@ -22,6 +22,18 @@ export function visibleBenefitFiles(benefit: BenefitType | null): BenefitFile[] 
   return (benefit.requiredFiles ?? []).filter((file) => !isOtherDocuments(file.label));
 }
 
+export const GENERIC_ATTACHMENT: BenefitFile = {
+  id: 'generic',
+  label: 'Documento',
+  acceptedTypes: 'jpg, png, pdf',
+  order: 0,
+};
+
+export function attachmentSlots(benefits: BenefitType[], selected: BenefitType | null): BenefitFile[] {
+  if (benefits.length === 0) return [GENERIC_ATTACHMENT];
+  return visibleBenefitFiles(selected);
+}
+
 export function matchBenefits(benefits: BenefitType[], query: string): BenefitType[] {
   const term = query.trim().toLowerCase();
   if (!term) return benefits;

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { deleteCadastroFiles, keepFile } from '../data/files';
 import { pickDocument, pickFromCamera, pickFromLibrary, type PickedFile } from '../data/pick-file';
-import { fileProblem, isHealthBenefit, visibleBenefitFiles } from '../lib/benefits';
+import { attachmentSlots, fileProblem, isHealthBenefit } from '../lib/benefits';
 import { findSameCpf } from '../lib/duplicate';
 import { createId } from '../lib/id';
 import { maskCpf, maskDate, maskDateTime, maskPhone } from '../lib/masks';
@@ -44,7 +44,7 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
   const kanban = queue.catalog.kanbans.find((item) => item.id === kanbanId);
   const required = kanban?.requiredFields;
   const benefit = queue.catalog.benefits.find((item) => item.id === benefitId) ?? null;
-  const fileSlots = visibleBenefitFiles(benefit);
+  const fileSlots = queue.catalogLoading ? [] : attachmentSlots(queue.catalog.benefits, benefit);
   const req = (key: string) => isFieldRequired(required, key);
 
   useEffect(() => {
