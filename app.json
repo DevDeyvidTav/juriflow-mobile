@@ -2,7 +2,7 @@
   "expo": {
     "name": "JuriFlow Cadastro",
     "slug": "juriflow-cadastro",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -41,7 +41,8 @@
           "photosPermission": "A galeria é usada para anexar fotos de documentos do cliente."
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-font"
     ]
   }
 }
