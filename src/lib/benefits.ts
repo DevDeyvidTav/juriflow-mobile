@@ -26,8 +26,19 @@ export const GENERIC_ATTACHMENT: BenefitFile = {
   id: 'generic',
   label: 'Documento',
   acceptedTypes: 'jpg, png, pdf',
+  maxFiles: null,
   order: 0,
 };
+
+export function folderLimit(file: BenefitFile): number | null {
+  if (!Object.prototype.hasOwnProperty.call(file, 'maxFiles') || file.maxFiles === undefined) return 1;
+  return file.maxFiles;
+}
+
+export function canAddFile(count: number, maxFiles: number | null): boolean {
+  if (maxFiles == null) return true;
+  return count < maxFiles;
+}
 
 export function attachmentSlots(benefits: BenefitType[], selected: BenefitType | null): BenefitFile[] {
   if (benefits.length === 0) return [GENERIC_ATTACHMENT];

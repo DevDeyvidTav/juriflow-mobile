@@ -126,6 +126,7 @@ export type BenefitFile = {
   id: string;
   label: string;
   acceptedTypes: string;
+  maxFiles?: number | null;
   order: number;
 };
 

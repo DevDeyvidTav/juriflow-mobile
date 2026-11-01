@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 import { deleteCadastroFiles, keepFile } from '../data/files';
 import { pickDocument, pickFromCamera, pickFromLibrary, type PickedFile } from '../data/pick-file';
-import { attachmentSlots, fileProblem, isHealthBenefit } from '../lib/benefits';
+import { attachmentSlots, canAddFile, fileProblem, folderLimit, isHealthBenefit } from '../lib/benefits';
 import { findSameCpf } from '../lib/duplicate';
 import { createId } from '../lib/id';
 import { maskCpf, maskDate, maskDateTime, maskPhone } from '../lib/masks';
@@ -14,6 +14,7 @@ import { useQueue } from '../state/queue';
 import { useSession } from '../state/session';
 import { colors } from '../theme/colors';
 import { Button } from '../ui/Button';
+import { FileFolders } from '../ui/FileFolders';
 import { Card } from '../ui/Screen';
 import { Notice } from '../ui/Notice';
 import { SectionTitle } from '../ui/SectionTitle';
@@ -37,7 +38,7 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [kanbanId, setKanbanId] = useState('');
   const [benefitId, setBenefitId] = useState('');
-  const [files, setFiles] = useState<Record<string, DraftFile>>({});
+  const [files, setFiles] = useState<Record<string, DraftFile[]>>({});
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -64,8 +65,13 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
     setForm((current) => ({ ...current, targetBenefit: next?.name ?? '' }));
   }
 
-  async function attach(label: string, pick: () => Promise<PickedFile | null>) {
+  async function attach(label: string, maxFiles: number | null, pick: () => Promise<PickedFile | null>) {
     setMessage('');
+    const currentCount = files[label]?.length ?? 0;
+    if (!canAddFile(currentCount, maxFiles)) {
+      setMessage(`A pasta "${label}" aceita no máximo ${maxFiles} arquivo(s).`);
+      return;
+    }
     try {
       const file = await pick();
       if (!file) return;
@@ -74,7 +80,7 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
         setMessage(problem);
         return;
       }
-      setFiles((current) => ({ ...current, [label]: { ...file, label } }));
+      setFiles((current) => ({ ...current, [label]: [...(current[label] ?? []), { ...file, label }] }));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Não foi possível anexar o arquivo.');
     }
@@ -102,15 +108,17 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
     const id = createId();
     try {
       const stored: LocalFile[] = [];
-      for (const file of Object.values(files)) {
-        const fileId = createId();
-        stored.push({
-          id: fileId,
-          label: file.label,
-          name: file.name,
-          mime: file.mime,
-          uri: await keepFile(id, fileId, file.uri, file.name),
-        });
+      for (const group of Object.values(files)) {
+        for (const file of group) {
+          const fileId = createId();
+          stored.push({
+            id: fileId,
+            label: file.label,
+            name: file.name,
+            mime: file.mime,
+            uri: await keepFile(id, fileId, file.uri, file.name),
+          });
+        }
       }
       const item: Cadastro = {
         id,
@@ -273,23 +281,20 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
       ))}
 
       {fileSlots.length > 0 ? (
-        <Card>
-          <SectionTitle>Documentos e Fotos</SectionTitle>
-          <Text style={styles.help}>Opcional. O arquivo fica no aparelho até a sincronização.</Text>
-          {fileSlots.map((slot) => (
-            <View key={slot.id} style={styles.fileBox}>
-              <Text style={styles.fileLabel}>{slot.label}</Text>
-              <Text style={styles.help}>
-                {files[slot.label] ? files[slot.label].name : `JPG, PNG ou PDF (${slot.acceptedTypes})`}
-              </Text>
-              <View style={styles.row}>
-                <View style={styles.flex}><Button tone="ghost" label="Câmera" onPress={() => attach(slot.label, pickFromCamera)} /></View>
-                <View style={styles.flex}><Button tone="ghost" label="Galeria" onPress={() => attach(slot.label, pickFromLibrary)} /></View>
-                <View style={styles.flex}><Button tone="ghost" label="Arquivo" onPress={() => attach(slot.label, pickDocument)} /></View>
-              </View>
-            </View>
-          ))}
-        </Card>
+        <FileFolders
+          folders={fileSlots}
+          files={files}
+          onAdd={(folder, source) => {
+            const pick = source === 'camera' ? pickFromCamera : source === 'library' ? pickFromLibrary : pickDocument;
+            void attach(folder.label, folderLimit(folder), pick);
+          }}
+          onRemove={(label, index) => {
+            setFiles((current) => ({
+              ...current,
+              [label]: (current[label] ?? []).filter((_, itemIndex) => itemIndex !== index),
+            }));
+          }}
+        />
       ) : null}
 
       <Button label={saving ? 'Guardando...' : 'Guardar cadastro'} onPress={submit} disabled={saving || !queue.ready} />
@@ -316,20 +321,5 @@ const styles = StyleSheet.create({
   help: {
     color: colors.mutedSubtle,
     fontSize: 12,
-  },
-  fileBox: {
-    gap: 8,
-  },
-  fileLabel: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  flex: {
-    flex: 1,
   },
 });
