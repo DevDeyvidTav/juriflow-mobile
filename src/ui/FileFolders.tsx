@@ -24,9 +24,6 @@ export function FileFolders({ folders, files, onAdd, onRemove }: Props) {
     return (files[folder.label] ?? []).some((file) => file.name.toLowerCase().includes(term));
   });
   const total = folders.reduce((sum, folder) => sum + (files[folder.label]?.length ?? 0), 0);
-  const open = folders.find((folder) => folder.id === openId) ?? null;
-  const openFiles = open ? files[open.label] ?? [] : [];
-  const limit = open ? folderLimit(open) : null;
 
   return (
     <View style={styles.box}>
@@ -46,58 +43,70 @@ export function FileFolders({ folders, files, onAdd, onRemove }: Props) {
           const count = files[folder.label]?.length ?? 0;
           const selected = folder.id === openId;
           const max = folderLimit(folder);
+          const folderFiles = files[folder.label] ?? [];
+          const canAdd = canAddFile(folderFiles.length, max);
           return (
-            <Pressable
-              key={folder.id}
-              onPress={() => setOpenId(selected ? null : folder.id)}
-              style={[styles.card, selected ? styles.cardOn : null]}
-            >
-              <Ionicons name="folder-outline" size={22} color={colors.accent} />
-              <View style={styles.cardText}>
-                <Text style={styles.name} numberOfLines={1}>{folder.label}</Text>
-                <Text style={styles.muted}>
-                  {count} {count === 1 ? 'arquivo' : 'arquivos'}
-                  {max != null ? ` · até ${max}` : ''}
-                </Text>
-              </View>
-              <Ionicons name={selected ? 'chevron-down' : 'chevron-forward'} size={16} color={colors.muted} />
-            </Pressable>
+            <View key={folder.id} style={[styles.card, selected ? styles.cardOn : null]}>
+              <Pressable onPress={() => setOpenId(selected ? null : folder.id)} style={styles.cardRow}>
+                <Ionicons name="folder-outline" size={22} color={colors.accent} />
+                <View style={styles.cardText}>
+                  <Text style={styles.name} numberOfLines={2}>{folder.label}</Text>
+                  <Text style={styles.muted}>
+                    {count} {count === 1 ? 'arquivo' : 'arquivos'}
+                    {max != null ? ` · até ${max}` : ''}
+                  </Text>
+                </View>
+                <Ionicons name={selected ? 'chevron-down' : 'chevron-forward'} size={16} color={colors.muted} />
+              </Pressable>
+              {selected ? (
+                <View style={styles.open}>
+                  {folderFiles.length === 0 ? (
+                    <Text style={styles.muted}>Pasta vazia. Pode anexar agora ou depois.</Text>
+                  ) : (
+                    folderFiles.map((file, index) => (
+                      <View key={`${file.name}-${index}`} style={styles.fileRow}>
+                        <Text style={styles.fileName} numberOfLines={1}>{file.name}</Text>
+                        <Pressable onPress={() => onRemove(folder.label, index)} hitSlop={8}>
+                          <Text style={styles.remove}>Remover</Text>
+                        </Pressable>
+                      </View>
+                    ))
+                  )}
+                  <View style={styles.actions}>
+                    <AddButton icon="camera" label="Foto" disabled={!canAdd} onPress={() => onAdd(folder, 'camera')} />
+                    <AddButton icon="images" label="Galeria" disabled={!canAdd} onPress={() => onAdd(folder, 'library')} />
+                    <AddButton icon="document-attach-outline" label="Arquivo" disabled={!canAdd} onPress={() => onAdd(folder, 'file')} />
+                  </View>
+                </View>
+              ) : null}
+            </View>
           );
         })}
       </View>
-      {open ? (
-        <View style={styles.open}>
-          <Text style={styles.openTitle}>
-            {open.label}{limit != null ? ` · até ${limit}` : ''}
-          </Text>
-          {openFiles.length === 0 ? (
-            <Text style={styles.muted}>Pasta vazia. Pode anexar agora ou depois.</Text>
-          ) : (
-            openFiles.map((file, index) => (
-              <View key={`${file.name}-${index}`} style={styles.fileRow}>
-                <Text style={styles.fileName} numberOfLines={1}>{file.name}</Text>
-                <Pressable onPress={() => onRemove(open.label, index)}>
-                  <Text style={styles.remove}>Remover</Text>
-                </Pressable>
-              </View>
-            ))
-          )}
-          <View style={styles.actions}>
-            <AddButton label="Câmera" disabled={!canAddFile(openFiles.length, limit)} onPress={() => onAdd(open, 'camera')} />
-            <AddButton label="Galeria" disabled={!canAddFile(openFiles.length, limit)} onPress={() => onAdd(open, 'library')} />
-            <AddButton label="Arquivo" disabled={!canAddFile(openFiles.length, limit)} onPress={() => onAdd(open, 'file')} />
-          </View>
-        </View>
-      ) : (
-        <Text style={styles.muted}>Clique em uma pasta para visualizar os arquivos.</Text>
-      )}
     </View>
   );
 }
 
-function AddButton({ label, disabled, onPress }: { label: string; disabled: boolean; onPress: () => void }) {
+function AddButton({
+  icon,
+  label,
+  disabled,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
   return (
-    <Pressable onPress={onPress} disabled={disabled} style={[styles.add, disabled ? styles.addOff : null]}>
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={[styles.add, disabled ? styles.addOff : null]}
+    >
+      <Ionicons name={icon} size={26} color={colors.white} />
       <Text style={styles.addText}>{label}</Text>
     </Pressable>
   );
@@ -135,14 +144,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 12,
     padding: 12,
+    gap: 10,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   cardOn: {
     borderColor: colors.accent,
@@ -158,14 +170,9 @@ const styles = StyleSheet.create({
   },
   open: {
     gap: 8,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: 10,
-  },
-  openTitle: {
-    color: colors.accent,
-    fontSize: 12,
-    fontWeight: '700',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 10,
   },
   fileRow: {
     flexDirection: 'row',
@@ -189,17 +196,17 @@ const styles = StyleSheet.create({
   add: {
     flex: 1,
     alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    paddingVertical: 8,
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 10,
+    backgroundColor: colors.secondary,
+    paddingVertical: 12,
   },
   addOff: {
     opacity: 0.45,
   },
   addText: {
-    color: colors.accent,
+    color: colors.white,
     fontSize: 12,
     fontWeight: '700',
   },
