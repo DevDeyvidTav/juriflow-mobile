@@ -46,6 +46,10 @@ export function DetalheScreen({ id, onBack }: { id: string; onBack: () => void }
           <Text style={styles.value}>{item.payload[line.key] || '—'}</Text>
         </View>
       ))}
+      <View style={styles.line}>
+        <Text style={styles.label}>Comentário</Text>
+        <Text style={styles.value}>{item.comment?.trim() || '—'}</Text>
+      </View>
       <Text style={styles.label}>Anexos ({item.files.length})</Text>
       {item.files.length === 0 ? <Text style={styles.meta}>Nenhum arquivo.</Text> : null}
       {item.files.map((file) => (

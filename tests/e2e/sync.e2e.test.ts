@@ -26,8 +26,10 @@ function item(id: string, extra: Partial<Cadastro> = {}): Cadastro {
 function server() {
   const clients = new Map<string, string>();
   const uploads: string[] = [];
+  const comments: { clientId: string; text: string }[] = [];
   let dropNextCreate = false;
   let failFileId = '';
+  let failComment = false;
   const api: ClientApi = {
     async createClient(payload) {
       const known = clients.get(payload.clientRequestId);
@@ -45,16 +47,28 @@ function server() {
       uploads.push(current.id);
       return { id: `att-${current.id}` };
     },
+    async createComment(clientId, text) {
+      if (failComment) throw new Error('falha no comentário');
+      comments.push({ clientId, text });
+      return { id: `comment-${clientId}` };
+    },
   };
   return {
     api,
     clients,
     uploads,
+    comments,
     dropNext() {
       dropNextCreate = true;
     },
     failFile(id: string) {
       failFileId = id;
+    },
+    failNextComment() {
+      failComment = true;
+    },
+    allowComment() {
+      failComment = false;
     },
   };
 }
@@ -124,6 +138,32 @@ describe('fila de sincronização', () => {
     fake.clients.set('local-1', 'remote-local-1');
     await syncAll(store, fake.api, true, 'user-1');
     expect(fake.uploads).toEqual(['a']);
+    expect((await store.get('local-1'))?.status).toBe('synced');
+  });
+
+  it('cria o comentário com o id do cliente e não repete no segundo envio', async () => {
+    const store = createMemoryStore([item('local-1', { files: [], comment: 'Retorno na sexta' })]);
+    const fake = server();
+    await syncById(store, fake.api, 'local-1');
+    await syncById(store, fake.api, 'local-1');
+    expect(fake.comments).toEqual([{ clientId: 'remote-local-1', text: 'Retorno na sexta' }]);
+    expect((await store.get('local-1'))?.commentSent).toBe(true);
+    expect((await store.get('local-1'))?.status).toBe('synced');
+  });
+
+  it('tenta o comentário de novo sem criar outro cliente', async () => {
+    const store = createMemoryStore([item('local-1', { files: [], comment: 'Documentos incompletos' })]);
+    const fake = server();
+    fake.failNextComment();
+    await syncById(store, fake.api, 'local-1');
+    expect((await store.get('local-1'))?.status).toBe('error');
+    expect((await store.get('local-1'))?.remoteId).toBe('remote-local-1');
+    expect((await store.get('local-1'))?.commentSent).toBeFalsy();
+
+    fake.allowComment();
+    await syncById(store, fake.api, 'local-1');
+    expect(fake.clients.size).toBe(1);
+    expect(fake.comments).toEqual([{ clientId: 'remote-local-1', text: 'Documentos incompletos' }]);
     expect((await store.get('local-1'))?.status).toBe('synced');
   });
 

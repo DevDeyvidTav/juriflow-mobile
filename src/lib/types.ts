@@ -101,6 +101,8 @@ export type Cadastro = {
   kanbanName: string;
   payload: ClientPayload;
   files: LocalFile[];
+  comment?: string;
+  commentSent?: boolean;
 };
 
 export type CadastroStore = {
@@ -113,6 +115,7 @@ export type CadastroStore = {
 export type ClientApi = {
   createClient(payload: ClientPayload): Promise<{ id: string }>;
   uploadFile(clientId: string, file: LocalFile): Promise<{ id: string }>;
+  createComment(clientId: string, text: string): Promise<{ id: string }>;
 };
 
 export type KanbanBoard = {

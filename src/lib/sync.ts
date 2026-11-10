@@ -51,6 +51,17 @@ export async function syncById(
       await onUpdate?.();
     }
 
+    const ready = await store.get(id);
+    if (!ready) return;
+    const comment = ready.comment?.trim();
+    if (comment && !ready.commentSent) {
+      await api.createComment(remoteId, comment);
+      const commented = await store.get(id);
+      if (!commented) return;
+      await store.save({ ...commented, commentSent: true, status: 'syncing', remoteId, error: undefined });
+      await onUpdate?.();
+    }
+
     const done = await store.get(id);
     if (!done) return;
     await store.save({ ...done, status: 'synced', remoteId, error: undefined });

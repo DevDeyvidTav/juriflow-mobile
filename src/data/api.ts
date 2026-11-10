@@ -79,6 +79,12 @@ export function createClientApi(token: string): ClientApi {
     uploadFile(clientId, file) {
       return withRetry(() => postFile(token, clientId, file));
     },
+    createComment(clientId, text) {
+      return request<{ id: string }>(`/triagem/clients/${clientId}/comments`, token, {
+        method: 'POST',
+        body: JSON.stringify({ text }),
+      });
+    },
   };
 }
 

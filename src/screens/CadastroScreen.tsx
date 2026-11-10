@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { deleteCadastroFiles, keepFile } from '../data/files';
 import { pickDocument, pickFromCamera, pickFromLibrary, type PickedFile } from '../data/pick-file';
 import { attachmentSlots, canAddFile, fileProblem, folderLimit, isHealthBenefit } from '../lib/benefits';
@@ -41,6 +41,8 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
   const [files, setFiles] = useState<Record<string, DraftFile[]>>({});
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [askComment, setAskComment] = useState(false);
+  const [comment, setComment] = useState('');
 
   const kanban = queue.catalog.kanbans.find((item) => item.id === kanbanId);
   const required = kanban?.requiredFields;
@@ -91,9 +93,11 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
     setFiles({});
     setBenefitId('');
     setMessage('');
+    setComment('');
+    setAskComment(false);
   }
 
-  async function submit() {
+  function submit() {
     setMessage('');
     const error = validateForm(form, kanbanId, required);
     if (error) {
@@ -104,6 +108,16 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
       setMessage('Já existe um cadastro com este CPF neste aparelho.');
       return;
     }
+    setAskComment(true);
+  }
+
+  async function confirmComment() {
+    const text = comment.trim();
+    if (!text) {
+      setMessage('O comentário é obrigatório.');
+      return;
+    }
+    setAskComment(false);
     setSaving(true);
     const id = createId();
     try {
@@ -130,6 +144,8 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
         kanbanName: kanban?.name ?? '',
         payload: buildPayload(form, kanbanId, id),
         files: stored,
+        comment: text,
+        commentSent: false,
       };
       await queue.save(item);
       clearForm();
@@ -299,6 +315,30 @@ export function CadastroScreen({ onSaved }: { onSaved: () => void }) {
 
       <Button label={saving ? 'Guardando...' : 'Guardar cadastro'} onPress={submit} disabled={saving || !queue.ready} />
       <Button label="Limpar formulário" tone="ghost" onPress={clearForm} />
+
+      <Modal visible={askComment} transparent animationType="fade" onRequestClose={() => setAskComment(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setAskComment(false)}>
+          <Pressable style={styles.sheet} onPress={() => undefined}>
+            <Text style={styles.sheetTitle}>Você precisa anexar um comentário</Text>
+            <Text style={styles.subtitle}>
+              O comentário é obrigatório. Ao confirmar, o cadastro entra na fila e o texto sobe com o cliente.
+            </Text>
+            <TextInput
+              autoFocus
+              multiline
+              value={comment}
+              onChangeText={setComment}
+              placeholder="Ex.: cliente pediu retorno na sexta, documentos incompletos..."
+              placeholderTextColor={colors.mutedSubtle}
+              style={styles.comment}
+            />
+            <View style={styles.actions}>
+              <Button label="Cadastrar cliente" onPress={() => void confirmComment()} disabled={!comment.trim() || saving} />
+              <Button label="Voltar" tone="ghost" onPress={() => setAskComment(false)} />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -321,5 +361,39 @@ const styles = StyleSheet.create({
   help: {
     color: colors.mutedSubtle,
     fontSize: 12,
+  },
+  backdrop: {
+    flex: 1,
+    backgroundColor: '#000000a6',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  sheet: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    gap: 12,
+  },
+  sheetTitle: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  comment: {
+    minHeight: 110,
+    textAlignVertical: 'top',
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    color: colors.text,
+    fontSize: 14,
+  },
+  actions: {
+    gap: 8,
   },
 });
